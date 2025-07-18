@@ -24,9 +24,27 @@ router.post('/', async (req, res) => {
 // Get all orders (for admin or testing)
 router.get('/', async (req, res) => {
   try {
-    const { adminEmail } = req.query;
+    const { adminEmail, date, month, year } = req.query;
     if (!adminEmail) return res.status(400).json({ error: 'adminEmail required' });
-    const orders = await Order.find({ adminEmail }).sort({ createdAt: -1 });
+    let query = { adminEmail };
+    if (date) {
+      // Filter for a specific day (YYYY-MM-DD) in UTC
+      const [year, month, day] = date.split('-').map(Number);
+      const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+      const end = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0));
+      query.createdAt = { $gte: start, $lt: end };
+    } else if (month && year) {
+      // Filter for a specific month in UTC
+      const start = new Date(Date.UTC(Number(year), Number(month) - 1, 1, 0, 0, 0));
+      const end = new Date(Date.UTC(Number(year), Number(month), 1, 0, 0, 0));
+      query.createdAt = { $gte: start, $lt: end };
+    } else if (year) {
+      // Filter for a specific year in UTC
+      const start = new Date(Date.UTC(Number(year), 0, 1, 0, 0, 0));
+      const end = new Date(Date.UTC(Number(year) + 1, 0, 1, 0, 0, 0));
+      query.createdAt = { $gte: start, $lt: end };
+    }
+    const orders = await Order.find(query).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
     res.status(500).json({ error: err.message });
